@@ -1,0 +1,128 @@
+package chip8
+
+import "fmt"
+
+const (
+	MemorySize   = 4096  // Total memory size of CHIP-8
+	ProgramStart = 0x200 // Start of most CHIP-8 programs
+)
+
+type CPU struct {
+	Memory [MemorySize]byte // 4K memory
+
+	V [16]byte // 16 registers (V0 to VF)
+
+	I  uint16 // Index register
+	PC uint16 // Program counter
+
+	Stack [16]uint16 // Stack for subroutine calls
+	SP    byte       // Stack pointer
+
+}
+
+func New() *CPU {
+	return &CPU{
+		PC: ProgramStart, // Start execution at 0x200
+	}
+}
+
+func (c *CPU) LoadProgram(program []byte) error {
+	if len(program) > MemorySize-ProgramStart {
+		return fmt.Errorf("program size exceeds available memory: %d", len(program))
+	}
+
+	copy(c.Memory[ProgramStart:], program) // Load program into memory starting at 0x200
+	return nil
+}
+
+func (c *CPU) Fetch() (uint16, error) {
+	if int(c.PC)+1 >= len(c.Memory) {
+		return 0, fmt.Errorf("program counter out of bounds: %d", c.PC)
+	}
+
+	opcode := uint16(c.Memory[c.PC])<<8 | uint16(c.Memory[c.PC+1]) // Fetch 2 bytes as opcode
+	c.PC += 2                                                      // Move to the next instruction
+
+	return opcode, nil
+}
+
+func (c *CPU) Step() (uint16, error) {
+	opcode, err := c.Fetch()
+	if err != nil {
+		return 0, err
+	}
+
+	if err := c.Execute(opcode); err != nil {
+		return 0, err
+	}
+
+	return opcode, nil
+}
+
+func (c *CPU) Execute(opcode uint16) error {
+	nnn := opcode & 0x0FFF            // last 12 bits
+	nn := byte(opcode & 0x00FF)       // last 8 bits
+	x := byte((opcode & 0x0F00) >> 8) // bits 8-11
+
+	// Decode and execute the opcode
+	switch opcode & 0xF000 {
+	case 0x0000: // 0x00E0: Clear the display
+		switch opcode {
+		case 0x00EE: // Return from subroutine
+			return c.ret() // 0x00E0: Clear the display
+		default:
+			return fmt.Errorf("unknown 0x0000 opcode: 0x%04X", opcode)
+		}
+	case 0x1000: // 0x1NNN: Jump to address NNN
+		c.PC = nnn
+
+	case 0x2000: // 0x2NNN: Call subroutine at NNN
+		return c.call(nnn) // 0x2NNN: Call subroutine at NNN
+
+	case 0x3000: // 0x3XNN: Skip next instruction if VX == NN
+		if c.V[x] == nn {
+			c.PC += 2
+		}
+
+	case 0x4000: // 0x4XNN: Skip next instruction if VX != NN
+		if c.V[x] != nn {
+			c.PC += 2
+		}
+
+	case 0x6000: // 0x6XNN: Set VX to NN
+		c.V[x] = nn
+
+	case 0x7000: // 0x7XNN: Add NN to VX
+		c.V[x] += nn
+
+	case 0xA000: // 0xANNN: Set I to address NNN
+		c.I = nnn
+
+	default:
+		return fmt.Errorf("unknown opcode: 0x%04X", opcode)
+	}
+
+	return nil
+}
+
+func (c *CPU) call(address uint16) error {
+	if int(c.SP) >= len(c.Stack) {
+		return fmt.Errorf("stack overflow")
+	}
+
+	c.Stack[c.SP] = c.PC // Store current PC on stack
+	c.SP++               // Increment stack pointer
+	c.PC = address       // Jump to subroutine address
+
+	return nil
+}
+
+func (c *CPU) ret() error {
+	if c.SP == 0 {
+		return fmt.Errorf("stack underflow")
+	}
+
+	c.SP--               // Decrement stack pointer
+	c.PC = c.Stack[c.SP] // Jump to the address stored on the stack
+	return nil
+}
