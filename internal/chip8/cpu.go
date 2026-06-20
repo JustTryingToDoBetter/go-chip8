@@ -73,6 +73,8 @@ func (c *CPU) Execute(opcode uint16) error {
 	switch opcode & 0xF000 {
 	case 0x0000: // 0x00E0: Clear the display
 		switch opcode {
+		case 0x00E0:
+			c.clearScreen()
 		case 0x00EE: // Return from subroutine
 			return c.ret() // 0x00E0: Clear the display
 		default:
