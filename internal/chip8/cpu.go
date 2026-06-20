@@ -5,7 +5,7 @@ import "fmt"
 const (
 	MemorySize   = 4096  // Total memory size of CHIP-8
 	ProgramStart = 0x200 // Start of most CHIP-8 programs
-	screenWidth  = 66
+	screenWidth  = 64
 	screenHeight = 32
 )
 
