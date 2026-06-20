@@ -144,3 +144,33 @@ func TestCallAndReturn(t *testing.T) {
 		t.Fatalf("expected V0 to be 1, got %d", cpu.V[0])
 	}
 }
+
+func TestClearScreen(t *testing.T) {
+	cpu := New()
+
+	cpu.Display[0] = true
+	cpu.Display[10] = true
+	cpu.DisplayDirty = false
+
+	program := []byte{
+		0x00, 0xE0, // clear screen
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := cpu.Step(); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, pixel := range cpu.Display {
+		if pixel {
+			t.Fatalf("expected display[%d] to be false", i)
+		}
+	}
+
+	if !cpu.DisplayDirty {
+		t.Fatal("expected DisplayDirty to be true after clearing screen")
+	}
+}
