@@ -5,6 +5,8 @@ import "fmt"
 const (
 	MemorySize   = 4096  // Total memory size of CHIP-8
 	ProgramStart = 0x200 // Start of most CHIP-8 programs
+	screenWidth  = 66
+	screenHeight = 32
 )
 
 type CPU struct {
@@ -18,6 +20,8 @@ type CPU struct {
 	Stack [16]uint16 // Stack for subroutine calls
 	SP    byte       // Stack pointer
 
+	Display      [screenWidth * screenHeight]bool //
+	DisplayDirty bool
 }
 
 func New() *CPU {
@@ -63,6 +67,7 @@ func (c *CPU) Execute(opcode uint16) error {
 	nnn := opcode & 0x0FFF            // last 12 bits
 	nn := byte(opcode & 0x00FF)       // last 8 bits
 	x := byte((opcode & 0x0F00) >> 8) // bits 8-11
+	y := byte((opcode & 0x00F0) >> 4) //
 
 	// Decode and execute the opcode
 	switch opcode & 0xF000 {
@@ -89,11 +94,52 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.PC += 2
 		}
 
+	case 0x5000:
+		if opcode&0x000F != 0 {
+			return fmt.Errorf("unknown 0x5000: %04X", opcode)
+		}
+
+		// 5XY0 - skip next intruscttions if VX == VY
+		if c.V[x] == c.V[y] {
+			c.PC += 2
+		}
+
 	case 0x6000: // 0x6XNN: Set VX to NN
 		c.V[x] = nn
 
 	case 0x7000: // 0x7XNN: Add NN to VX
 		c.V[x] += nn
+
+	case 0x8000:
+		switch opcode & 0x00F {
+		case 0x0:
+			c.V[x] = c.V[y]
+
+		case 0x1:
+			c.V[x] |= c.V[y]
+
+		case 0x2:
+			c.V[x] &= c.V[y]
+
+		case 0x3:
+			c.V[x] ^= c.V[y]
+
+		case 0x4:
+			sum := uint16(c.V[x]) + uint16(c.V[y])
+
+			if sum > 0xFF {
+				c.V[0xF] = 1
+			} else {
+				c.V[0xF] = 0
+			}
+
+			c.V[x] = byte(sum)
+
+		default:
+			return fmt.Errorf("unknown 0x8000 opcode: %04X", opcode)
+		}
+
+		return nil
 
 	case 0xA000: // 0xANNN: Set I to address NNN
 		c.I = nnn
@@ -125,4 +171,12 @@ func (c *CPU) ret() error {
 	c.SP--               // Decrement stack pointer
 	c.PC = c.Stack[c.SP] // Jump to the address stored on the stack
 	return nil
+}
+
+func (c *CPU) clearScreen() {
+	for i := range c.Display {
+		c.Display[i] = false
+	}
+
+	c.DisplayDirty = true
 }
