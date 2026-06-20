@@ -1,6 +1,9 @@
 package chip8
 
-import "fmt"
+import (
+	"crypto/rand"
+	"fmt"
+)
 
 const (
 	MemorySize   = 4096  // Total memory size of CHIP-8
@@ -137,12 +140,69 @@ func (c *CPU) Execute(opcode uint16) error {
 
 			c.V[x] = byte(sum)
 
+		case 0x5:
+			// 8XY5 - VX = VX - VY, VF = NOT borrow
+			vx := c.V[x]
+			vy := c.V[y]
+
+			c.V[x] = vx - vy
+
+			if vx >= vy {
+				c.V[0xF] = 1
+			} else {
+				c.V[0xF] = 0
+			}
+
+		case 0x6:
+			// 8XY6 - VX = VY >> 1, VF = dropped least-significant bit
+			vy := c.V[y]
+
+			c.V[x] = vy >> 1
+			c.V[0xF] = vy & 0x01
+
+		case 0x7:
+			// 8XY7 - VX = VY - VX, VF = NOT borrow
+			vx := c.V[x]
+			vy := c.V[y]
+
+			c.V[x] = vy - vx
+
+			if vy >= vx {
+				c.V[0xF] = 1
+			} else {
+				c.V[0xF] = 0
+			}
+
+		case 0xE:
+			// 8XYE - VX = VY << 1, VF = dropped most-significant bit
+			vy := c.V[y]
+
+			c.V[x] = vy << 1
+			c.V[0xF] = (vy & 0x80) >> 7
+
 		default:
 			return fmt.Errorf("unknown 0x8000 opcode: %04X", opcode)
 		}
 
 		return nil
 
+	case 0x9000:
+		if opcode&0x000F != 0 {
+			return fmt.Errorf("unknown 0x9000 opcode: %04X", opcode)
+		}
+
+		// 9XY0 - skip next instruction if VX != VY
+		if c.V[x] != c.V[y] {
+			c.PC += 2
+		}
+
+	case 0xB000:
+		// BNNN - jump to V0 + NNN
+		c.PC = uint16(c.V[0]) + nnn
+
+	case 0xC000:
+		// CXNN - VX = random byte AND NN
+		c.V[x] = randomByte() & nn
 	case 0xA000: // 0xANNN: Set I to address NNN
 		c.I = nnn
 
@@ -181,4 +241,14 @@ func (c *CPU) clearScreen() {
 	}
 
 	c.DisplayDirty = true
+}
+
+func randomByte() byte {
+	var b [1]byte
+
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+
+	return b[0]
 }
