@@ -28,6 +28,8 @@ type CPU struct {
 
 	DelayTimer byte
 	SoundTimer byte
+
+	Keys [16]bool
 }
 
 func New() *CPU {
@@ -220,6 +222,24 @@ func (c *CPU) Execute(opcode uint16) error {
 
 	case 0xF000:
 		switch opcode & 0x00FF {
+		case 0x07:
+			// FX07 - VX = delay timer read
+			c.V[x] = c.DelayTimer
+
+		// stop here until a key is pressed
+		case 0x0A:
+			// wait for key presses, then store key in VX
+			key, pressed := c.pressedKey()
+			if !pressed {
+				c.PC -= 2
+				return nil
+			}
+		case 0x15:
+			// FX15 - delay timer = VX set
+			c.DelayTimer = c.V[x]
+		case 0x18:
+			// FX18 - sound timer = VX set
+			c.SoundTimer = c.V[x]
 		case 0x29:
 			// FX29 - set I to location of sprite for digit VX
 			digit := c.V[x] & 0x0F
@@ -227,6 +247,28 @@ func (c *CPU) Execute(opcode uint16) error {
 
 		default:
 			return fmt.Errorf("unknown 0xF000 opcode: 0x%04X", opcode)
+		}
+
+	case 0xE000:
+		switch opcode & 0x00FF {
+		case 0x9E:
+			// skip next instruction if key stored in VX is pressed
+			key := c.V[x]
+
+			if c.isKeyPressed(key) {
+				c.PC += 2
+			}
+		case 0xA1:
+			// skip next instruction if key stored in VX is not pressed
+
+			key := c.V[x]
+
+			if !c.isKeyPressed(key) {
+				c.PC += 2
+			}
+
+		default:
+			return fmt.Errorf("unknown 0xE000 opcode: 0x%04X", opcode)
 		}
 	default:
 		return fmt.Errorf("unknown opcode: 0x%04X", opcode)
@@ -313,4 +355,22 @@ func (c *CPU) UpdateTimers() {
 	if c.SoundTimer > 0 {
 		c.SoundTimer--
 	}
+}
+
+func (c *CPU) isKeyPressed(key byte) bool {
+	if key > 0xF {
+		return false
+	}
+
+	return c.Keys[key]
+}
+
+func (c *CPU) pressedKey() (byte, bool) {
+	for key, pressed := range c.Keys {
+		if pressed {
+			return byte(key), true
+		}
+	}
+
+	return 0, false
 }
