@@ -69,6 +69,7 @@ func (c *CPU) Step() (uint16, error) {
 func (c *CPU) Execute(opcode uint16) error {
 	nnn := opcode & 0x0FFF            // last 12 bits
 	nn := byte(opcode & 0x00FF)       // last 8 bits
+	n := byte(opcode & 0x000F)        // last 4 bits
 	x := byte((opcode & 0x0F00) >> 8) // bits 8-11
 	y := byte((opcode & 0x00F0) >> 4) //
 
@@ -205,7 +206,9 @@ func (c *CPU) Execute(opcode uint16) error {
 		c.V[x] = randomByte() & nn
 	case 0xA000: // 0xANNN: Set I to address NNN
 		c.I = nnn
-
+	case 0xD000:
+		// DXYN - draw N-byte sprite at (VX, VY)
+		c.drawSprite(x, y, n)
 	default:
 		return fmt.Errorf("unknown opcode: 0x%04X", opcode)
 	}
@@ -251,4 +254,34 @@ func randomByte() byte {
 	}
 
 	return b[0]
+}
+
+func (c *CPU) drawSprite(xReg, yReg, height byte) {
+	xPos := int(c.V[xReg]) % screenWidth
+	yPos := int(c.V[yReg]) % screenHeight
+
+	c.V[0xF] = 0
+
+	for row := 0; row < int(height); row++ {
+		spriteByte := c.Memory[(c.I + uint16(row))] //
+
+		for col := 0; col < 8; col++ {
+			if spriteByte == 0 {
+				continue
+			}
+
+			x := (xPos + col) % screenWidth
+			y := (yPos + row) % screenHeight
+			index := y*screenWidth + x
+
+			if c.Display[index] {
+				c.V[0xF] = 1
+			}
+
+			c.Display[index] = !c.Display[index]
+		}
+
+		c.DisplayDirty = true
+
+	}
 }
