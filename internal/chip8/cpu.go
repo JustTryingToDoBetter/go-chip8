@@ -35,6 +35,9 @@ type CPU struct {
 	SoundTimer byte
 
 	Keys [16]bool
+
+	waitingKeyRelease bool
+	waitingKey        byte
 }
 
 func New() *CPU {
@@ -101,7 +104,7 @@ func (c *CPU) Execute(opcode uint16) error {
 		case 0x00E0:
 			c.clearScreen()
 		case 0x00EE: // Return from subroutine
-			return c.ret() // 0x00E0: Clear the display
+			return c.ret()
 
 		default:
 			return fmt.Errorf("unknown 0x0000 opcode: 0x%04X", opcode)
@@ -139,81 +142,86 @@ func (c *CPU) Execute(opcode uint16) error {
 		c.V[x] += nn
 
 	case 0x8000:
-		switch opcode & 0x00F {
+		switch opcode & 0x000F {
 		case 0x0:
 			c.V[x] = c.V[y]
 
 		case 0x1:
-			c.V[x] |= c.V[y]
+			result := c.V[x] | c.V[y]
+			c.V[x] = result
+			c.V[0xF] = 0
 
 		case 0x2:
-			c.V[x] &= c.V[y]
+			result := c.V[x] & c.V[y]
+			c.V[x] = result
+			c.V[0xF] = 0
 
 		case 0x3:
-			c.V[x] ^= c.V[y]
+			result := c.V[x] ^ c.V[y]
+			c.V[x] = result
+			c.V[0xF] = 0
 
 		case 0x4:
-			// VX = VX + VY, VF = carry
 			vx := c.V[x]
 			vy := c.V[y]
 
 			sum := uint16(vx) + uint16(vy)
 			result := byte(sum)
-			carry := byte(0)
 
+			flag := byte(0)
 			if sum > 0xFF {
-				carry = 1
+				flag = 1
 			}
 
 			c.V[x] = result
-			c.V[0xF] = carry
+			c.V[0xF] = flag
 
 		case 0x5:
-			// VX = VX - VY, VF = NOT borrow
 			vx := c.V[x]
 			vy := c.V[y]
 
 			result := vx - vy
-			notBorrow := byte(0)
 
+			flag := byte(0)
 			if vx >= vy {
-				notBorrow = 1
+				flag = 1
 			}
 
 			c.V[x] = result
-			c.V[0xF] = notBorrow
+			c.V[0xF] = flag
 
 		case 0x6:
-			// 8XY6 - VX = VY >> 1, VF = dropped least-significant bit
-			vy := c.V[y]
+			source := c.V[y]
+			result := source >> 1
+			flag := source & 0x01
 
-			c.V[x] = vy >> 1
-			c.V[0xF] = vy & 0x01
+			c.V[x] = result
+			c.V[0xF] = flag
 
 		case 0x7:
-			// VX = VY - VX, VF = NOT borrow
 			vx := c.V[x]
 			vy := c.V[y]
 
 			result := vy - vx
-			notBorrow := byte(0)
 
+			flag := byte(0)
 			if vy >= vx {
-				notBorrow = 1
+				flag = 1
 			}
 
 			c.V[x] = result
-			c.V[0xF] = notBorrow
+			c.V[0xF] = flag
 
 		case 0xE:
-			// 8XYE - VX = VY << 1, VF = dropped most-significant bit
-			vy := c.V[y]
+			source := c.V[y]
+			result := source << 1
+			flag := (source & 0x80) >> 7
 
-			c.V[x] = vy << 1
-			c.V[0xF] = (vy & 0x80) >> 7
+			c.V[x] = result
+			c.V[0xF] = flag
 
 		default:
-			return fmt.Errorf("unknown 0x8000 opcode: %04X", opcode)
+			return fmt.Errorf("unknown 0x8000 opcode: 0x%04X", opcode)
 		}
 
 		return nil
@@ -239,7 +247,7 @@ func (c *CPU) Execute(opcode uint16) error {
 		c.I = nnn
 	case 0xD000:
 		// DXYN - draw N-byte sprite at (VX, VY)
-		c.drawSprite(x, y, n)
+		return c.drawSprite(x, y, n)
 
 	case 0xF000:
 		switch opcode & 0x00FF {
@@ -250,13 +258,27 @@ func (c *CPU) Execute(opcode uint16) error {
 		// stop here until a key is pressed
 		case 0x0A:
 			// wait for key presses, then store key in VX
+			if c.waitingKeyRelease {
+				if c.isKeyPressed(c.waitingKey) {
+					c.PC -= 2
+					return nil
+				}
+
+				c.V[x] = c.waitingKey
+				c.waitingKeyRelease = false
+				return nil
+			}
+
 			key, pressed := c.pressedKey()
 			if !pressed {
 				c.PC -= 2
 				return nil
 			}
 
-			c.V[x] = key
+			c.waitingKey = key
+			c.waitingKeyRelease = true
+			c.PC -= 2
+			return nil
 
 		case 0x1E:
 			// I = I + VX
@@ -381,7 +403,11 @@ func randomByte() byte {
 	return b[0]
 }
 
-func (c *CPU) drawSprite(xReg, yReg, height byte) {
+func (c *CPU) drawSprite(xReg, yReg, height byte) error {
+	if err := c.ensureMemoryRange(c.I, int(height)); err != nil {
+		return err
+	}
+
 	xPos := int(c.V[xReg]) % screenWidth
 	yPos := int(c.V[yReg]) % screenHeight
 
@@ -410,6 +436,8 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) {
 		c.DisplayDirty = true
 
 	}
+
+	return nil
 }
 
 func (c *CPU) UpdateTimers() {

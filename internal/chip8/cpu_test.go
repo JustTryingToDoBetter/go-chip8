@@ -257,10 +257,16 @@ func Test8XY1Or(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	cpu.V[0xF] = 1
+
 	stepN(t, cpu, 3)
 
 	if cpu.V[0] != 0b1110 {
 		t.Fatalf("expected V0 to be 14, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be reset to 0, got %d", cpu.V[0xF])
 	}
 }
 
@@ -277,10 +283,16 @@ func Test8XY2And(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	cpu.V[0xF] = 1
+
 	stepN(t, cpu, 3)
 
 	if cpu.V[0] != 0b1000 {
 		t.Fatalf("expected V0 to be 8, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be reset to 0, got %d", cpu.V[0xF])
 	}
 }
 
@@ -297,10 +309,16 @@ func Test8XY3Xor(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	cpu.V[0xF] = 1
+
 	stepN(t, cpu, 3)
 
 	if cpu.V[0] != 0b0110 {
 		t.Fatalf("expected V0 to be 6, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be reset to 0, got %d", cpu.V[0xF])
 	}
 }
 
@@ -736,6 +754,16 @@ func TestDXYNDrawSpriteWrapsAroundScreen(t *testing.T) {
 	}
 }
 
+func TestDXYNReturnsErrorWhenSpriteMemoryIsOutOfBounds(t *testing.T) {
+	cpu := New()
+
+	cpu.I = MemorySize - 1
+
+	if err := cpu.Execute(0xD002); err == nil {
+		t.Fatal("expected drawing a sprite past memory bounds to return an error")
+	}
+}
+
 func TestEX9ESkipIfKeyInVXIsPressed(t *testing.T) {
 	cpu := New()
 
@@ -823,7 +851,7 @@ func TestFX0AWaitsUntilKeyPress(t *testing.T) {
 	}
 }
 
-func TestFX0AStoresPressedKey(t *testing.T) {
+func TestFX0AWaitsForPressedKeyToBeReleased(t *testing.T) {
 	cpu := New()
 
 	program := []byte{
@@ -836,6 +864,32 @@ func TestFX0AStoresPressedKey(t *testing.T) {
 
 	cpu.Keys[0xC] = true
 
+	stepN(t, cpu, 1)
+
+	if cpu.V[2] != 0 {
+		t.Fatalf("expected V2 to remain 0 until key is released, got 0x%X", cpu.V[2])
+	}
+
+	if cpu.PC != ProgramStart {
+		t.Fatalf("expected PC to stay at 0x%03X while key is held, got 0x%03X", ProgramStart, cpu.PC)
+	}
+}
+
+func TestFX0AStoresPressedKeyAfterRelease(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xF2, 0x0A, // wait for key, store in V2
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.Keys[0xC] = true
+	stepN(t, cpu, 1)
+
+	cpu.Keys[0xC] = false
 	stepN(t, cpu, 1)
 
 	if cpu.V[2] != 0xC {
