@@ -243,6 +243,8 @@ func (c *CPU) Execute(opcode uint16) error {
 				return nil
 			}
 
+			c.V[x] = key
+
 		case 0x1E:
 			// I = I + VX
 			c.I += uint16(c.V[x])
