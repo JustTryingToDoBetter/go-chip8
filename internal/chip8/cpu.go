@@ -25,6 +25,9 @@ type CPU struct {
 
 	Display      [screenWidth * screenHeight]bool //
 	DisplayDirty bool
+
+	DelayTimer byte
+	SoundTimer byte
 }
 
 func New() *CPU {
