@@ -153,28 +153,35 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.V[x] ^= c.V[y]
 
 		case 0x4:
-			sum := uint16(c.V[x]) + uint16(c.V[y])
-
-			if sum > 0xFF {
-				c.V[0xF] = 1
-			} else {
-				c.V[0xF] = 0
-			}
-
-			c.V[x] = byte(sum)
-
-		case 0x5:
-			// 8XY5 - VX = VX - VY, VF = NOT borrow
+			// VX = VX + VY, VF = carry
 			vx := c.V[x]
 			vy := c.V[y]
 
-			c.V[x] = vx - vy
+			sum := uint16(vx) + uint16(vy)
+			result := byte(sum)
+			carry := byte(0)
+
+			if sum > 0xFF {
+				carry = 1
+			}
+
+			c.V[x] = result
+			c.V[0xF] = carry
+
+		case 0x5:
+			// VX = VX - VY, VF = NOT borrow
+			vx := c.V[x]
+			vy := c.V[y]
+
+			result := vx - vy
+			notBorrow := byte(0)
 
 			if vx >= vy {
-				c.V[0xF] = 1
-			} else {
-				c.V[0xF] = 0
+				notBorrow = 1
 			}
+
+			c.V[x] = result
+			c.V[0xF] = notBorrow
 
 		case 0x6:
 			// 8XY6 - VX = VY >> 1, VF = dropped least-significant bit
@@ -184,17 +191,19 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.V[0xF] = vy & 0x01
 
 		case 0x7:
-			// 8XY7 - VX = VY - VX, VF = NOT borrow
+			// VX = VY - VX, VF = NOT borrow
 			vx := c.V[x]
 			vy := c.V[y]
 
-			c.V[x] = vy - vx
+			result := vy - vx
+			notBorrow := byte(0)
 
 			if vy >= vx {
-				c.V[0xF] = 1
-			} else {
-				c.V[0xF] = 0
+				notBorrow = 1
 			}
+
+			c.V[x] = result
+			c.V[0xF] = notBorrow
 
 		case 0xE:
 			// 8XYE - VX = VY << 1, VF = dropped most-significant bit
