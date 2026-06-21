@@ -3,6 +3,7 @@ package chip8
 import (
 	"crypto/rand"
 	"fmt"
+	"os"
 )
 
 const (
@@ -50,7 +51,14 @@ func (c *CPU) LoadProgram(program []byte) error {
 	copy(c.Memory[ProgramStart:], program) // Load program into memory starting at 0x200
 	return nil
 }
+func (c *CPU) LoadROM(path string) error {
+	rom, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read ROM %q: %w", path, err)
+	}
 
+	return c.LoadProgram(rom)
+}
 func (c *CPU) Fetch() (uint16, error) {
 	if int(c.PC)+1 >= len(c.Memory) {
 		return 0, fmt.Errorf("program counter out of bounds: %d", c.PC)
@@ -251,6 +259,7 @@ func (c *CPU) Execute(opcode uint16) error {
 
 		case 0x33:
 			// store BCD reprsentatoins of VX at I, I+1, I+2
+			// for decimal display
 			if err := c.ensureMemoryRange(c.I, 3); err != nil {
 				return err
 			}
@@ -263,6 +272,7 @@ func (c *CPU) Execute(opcode uint16) error {
 
 		case 0x55:
 			// store V0 through VX into memory starting at I
+			// saves registers to memory
 			count := int(x) + 1
 			if err := c.ensureMemoryRange(c.I, count); err != nil {
 				return err
@@ -274,6 +284,7 @@ func (c *CPU) Execute(opcode uint16) error {
 
 		case 0x65:
 			// laod V0 through VX from memory starting at I
+			// retrieves registers from memory?
 			count := int(x) + 1
 			if err := c.ensureMemoryRange(c.I, count); err != nil {
 				return err
