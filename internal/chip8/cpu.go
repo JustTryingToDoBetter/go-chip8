@@ -234,6 +234,10 @@ func (c *CPU) Execute(opcode uint16) error {
 				c.PC -= 2
 				return nil
 			}
+
+		case 0x1E:
+			// I = I + VX
+			c.I += uint16(c.V[x])
 		case 0x15:
 			// FX15 - delay timer = VX set
 			c.DelayTimer = c.V[x]
@@ -244,6 +248,40 @@ func (c *CPU) Execute(opcode uint16) error {
 			// FX29 - set I to location of sprite for digit VX
 			digit := c.V[x] & 0x0F
 			c.I = FontStart + uint16(digit)*5
+
+		case 0x33:
+			// store BCD reprsentatoins of VX at I, I+1, I+2
+			if err := c.ensureMemoryRange(c.I, 3); err != nil {
+				return err
+			}
+
+			value := c.V[x]
+
+			c.Memory[c.I] = value / 100
+			c.Memory[c.I+1] = (value / 10) % 10
+			c.Memory[c.I+2] = value % 10
+
+		case 0x55:
+			// store V0 through VX into memory starting at I
+			count := int(x) + 1
+			if err := c.ensureMemoryRange(c.I, count); err != nil {
+				return err
+			}
+
+			for i := 0; i < count; i++ {
+				c.Memory[c.I+uint16(i)] = c.V[i]
+			}
+
+		case 0x65:
+			// laod V0 through VX from memory starting at I
+			count := int(x) + 1
+			if err := c.ensureMemoryRange(c.I, count); err != nil {
+				return err
+			}
+
+			for i := 0; i < count; i++ {
+				c.V[i] = c.Memory[c.I+uint16(i)]
+			}
 
 		default:
 			return fmt.Errorf("unknown 0xF000 opcode: 0x%04X", opcode)
@@ -373,4 +411,18 @@ func (c *CPU) pressedKey() (byte, bool) {
 	}
 
 	return 0, false
+}
+
+func (c *CPU) ensureMemoryRange(start uint16, length int) error {
+	if length < 0 {
+		return fmt.Errorf("invalid memory range length: %d", length)
+	}
+
+	end := int(start) + length
+
+	if end > len(c.Memory) {
+		return fmt.Errorf("memory range out of bounds: start=0x%03X length=%d", start, length)
+	}
+
+	return nil
 }
