@@ -304,3 +304,13 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) {
 
 	}
 }
+
+func (c *CPU) UpdateTimers() {
+	if c.DelayTimer > 0 {
+		c.DelayTimer--
+	}
+
+	if c.SoundTimer > 0 {
+		c.SoundTimer--
+	}
+}
