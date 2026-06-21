@@ -735,3 +735,279 @@ func TestDXYNDrawSpriteWrapsAroundScreen(t *testing.T) {
 		}
 	}
 }
+
+func TestEX9ESkipIfKeyInVXIsPressed(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0x60, 0x0A, // V0 = key A
+		0xE0, 0x9E, // skip next if key in V0 is pressed
+		0x61, 0xFF, // skipped
+		0x61, 0x05, // V1 = 5
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.Keys[0xA] = true
+
+	stepN(t, cpu, 3)
+
+	if cpu.V[1] != 5 {
+		t.Fatalf("expected V1 to be 5, got %d", cpu.V[1])
+	}
+}
+
+func TestEXA1SkipIfKeyInVXIsNotPressed(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0x60, 0x05, // V0 = key 5
+		0xE0, 0xA1, // skip next if key in V0 is not pressed
+		0x61, 0xFF, // skipped
+		0x61, 0x05, // V1 = 5
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	if cpu.V[1] != 5 {
+		t.Fatalf("expected V1 to be 5, got %d", cpu.V[1])
+	}
+}
+
+func TestFX07ReadDelayTimer(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xF1, 0x07, // V1 = delay timer
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.DelayTimer = 12
+
+	stepN(t, cpu, 1)
+
+	if cpu.V[1] != 12 {
+		t.Fatalf("expected V1 to be 12, got %d", cpu.V[1])
+	}
+}
+
+func TestFX0AWaitsUntilKeyPress(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xF2, 0x0A, // wait for key, store in V2
+		0x60, 0x01, // V0 = 1
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 1)
+
+	if cpu.PC != ProgramStart {
+		t.Fatalf("expected PC to stay at 0x%03X while waiting, got 0x%03X", ProgramStart, cpu.PC)
+	}
+
+	if cpu.V[2] != 0 {
+		t.Fatalf("expected V2 to remain 0 while no key is pressed, got %d", cpu.V[2])
+	}
+}
+
+func TestFX0AStoresPressedKey(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xF2, 0x0A, // wait for key, store in V2
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.Keys[0xC] = true
+
+	stepN(t, cpu, 1)
+
+	if cpu.V[2] != 0xC {
+		t.Fatalf("expected V2 to store key 0xC, got 0x%X", cpu.V[2])
+	}
+
+	if cpu.PC != ProgramStart+2 {
+		t.Fatalf("expected PC to advance to 0x%03X, got 0x%03X", ProgramStart+2, cpu.PC)
+	}
+}
+
+func TestFX15AndFX18SetTimers(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0x62, 0x09, // V2 = 9
+		0xF2, 0x15, // delay timer = V2
+		0xF2, 0x18, // sound timer = V2
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	if cpu.DelayTimer != 9 {
+		t.Fatalf("expected DelayTimer to be 9, got %d", cpu.DelayTimer)
+	}
+
+	if cpu.SoundTimer != 9 {
+		t.Fatalf("expected SoundTimer to be 9, got %d", cpu.SoundTimer)
+	}
+}
+
+func TestFX1EAddVXToI(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xA3, 0x00, // I = 0x300
+		0x60, 0x05, // V0 = 5
+		0xF0, 0x1E, // I += V0
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	if cpu.I != 0x305 {
+		t.Fatalf("expected I to be 0x305, got 0x%03X", cpu.I)
+	}
+}
+
+func TestFX29SetIToFontSprite(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0x60, 0x0A, // V0 = A
+		0xF0, 0x29, // I = font address for A
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 2)
+
+	expected := FontStart + uint16(0xA)*5
+	if cpu.I != expected {
+		t.Fatalf("expected I to be 0x%03X, got 0x%03X", expected, cpu.I)
+	}
+}
+
+func TestFX33StoreBCD(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xA3, 0x00, // I = 0x300
+		0x60, 123, // V0 = 123
+		0xF0, 0x33, // store BCD of V0 at I, I+1, I+2
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	if cpu.Memory[0x300] != 1 || cpu.Memory[0x301] != 2 || cpu.Memory[0x302] != 3 {
+		t.Fatalf(
+			"expected BCD bytes [1 2 3], got [%d %d %d]",
+			cpu.Memory[0x300],
+			cpu.Memory[0x301],
+			cpu.Memory[0x302],
+		)
+	}
+}
+
+func TestFX55StoreRegisters(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0x60, 0x01, // V0 = 1
+		0x61, 0x02, // V1 = 2
+		0x62, 0x03, // V2 = 3
+		0xA3, 0x00, // I = 0x300
+		0xF2, 0x55, // store V0 through V2 at I
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 5)
+
+	for offset, expected := range []byte{1, 2, 3} {
+		if cpu.Memory[0x300+offset] != expected {
+			t.Fatalf("expected memory[0x%03X] to be %d, got %d", 0x300+offset, expected, cpu.Memory[0x300+offset])
+		}
+	}
+}
+
+func TestFX65LoadRegisters(t *testing.T) {
+	cpu := New()
+
+	program := []byte{
+		0xA3, 0x00, // I = 0x300
+		0xF2, 0x65, // load V0 through V2 from I
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.Memory[0x300] = 4
+	cpu.Memory[0x301] = 5
+	cpu.Memory[0x302] = 6
+
+	stepN(t, cpu, 2)
+
+	for register, expected := range []byte{4, 5, 6} {
+		if cpu.V[register] != expected {
+			t.Fatalf("expected V%d to be %d, got %d", register, expected, cpu.V[register])
+		}
+	}
+}
+
+func TestUpdateTimersDecrementsNonZeroTimers(t *testing.T) {
+	cpu := New()
+
+	cpu.DelayTimer = 2
+	cpu.SoundTimer = 1
+
+	cpu.UpdateTimers()
+
+	if cpu.DelayTimer != 1 {
+		t.Fatalf("expected DelayTimer to be 1, got %d", cpu.DelayTimer)
+	}
+
+	if cpu.SoundTimer != 0 {
+		t.Fatalf("expected SoundTimer to be 0, got %d", cpu.SoundTimer)
+	}
+
+	cpu.UpdateTimers()
+
+	if cpu.DelayTimer != 0 {
+		t.Fatalf("expected DelayTimer to be 0, got %d", cpu.DelayTimer)
+	}
+
+	if cpu.SoundTimer != 0 {
+		t.Fatalf("expected SoundTimer to stay 0, got %d", cpu.SoundTimer)
+	}
+}
