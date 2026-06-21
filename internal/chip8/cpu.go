@@ -28,9 +28,13 @@ type CPU struct {
 }
 
 func New() *CPU {
-	return &CPU{
-		PC: ProgramStart, // Start execution at 0x200
+	cpu := &CPU{
+		PC: ProgramStart,
 	}
+
+	copy(cpu.Memory[FontStart:], fontSet[:])
+
+	return cpu
 }
 
 func (c *CPU) LoadProgram(program []byte) error {
@@ -81,6 +85,7 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.clearScreen()
 		case 0x00EE: // Return from subroutine
 			return c.ret() // 0x00E0: Clear the display
+
 		default:
 			return fmt.Errorf("unknown 0x0000 opcode: 0x%04X", opcode)
 		}
@@ -209,6 +214,17 @@ func (c *CPU) Execute(opcode uint16) error {
 	case 0xD000:
 		// DXYN - draw N-byte sprite at (VX, VY)
 		c.drawSprite(x, y, n)
+
+	case 0xF000:
+		switch opcode & 0x00FF {
+		case 0x29:
+			// FX29 - set I to location of sprite for digit VX
+			digit := c.V[x] & 0x0F
+			c.I = FontStart + uint16(digit)*5
+
+		default:
+			return fmt.Errorf("unknown 0xF000 opcode: 0x%04X", opcode)
+		}
 	default:
 		return fmt.Errorf("unknown opcode: 0x%04X", opcode)
 	}
