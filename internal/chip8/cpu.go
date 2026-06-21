@@ -7,10 +7,14 @@ import (
 )
 
 const (
-	MemorySize   = 4096  // Total memory size of CHIP-8
-	ProgramStart = 0x200 // Start of most CHIP-8 programs
-	screenWidth  = 64
-	screenHeight = 32
+	MemorySize   = 4096
+	ProgramStart = 0x200
+
+	ScreenWidth  = 64
+	ScreenHeight = 32
+
+	screenWidth  = ScreenWidth
+	screenHeight = ScreenHeight
 )
 
 type CPU struct {
@@ -378,7 +382,8 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) {
 		spriteByte := c.Memory[(c.I + uint16(row))] //
 
 		for col := 0; col < 8; col++ {
-			if spriteByte == 0 {
+			spritePixel := spriteByte & (0x80 >> col)
+			if spritePixel == 0 {
 				continue
 			}
 
