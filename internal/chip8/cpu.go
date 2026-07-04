@@ -38,6 +38,8 @@ type CPU struct {
 
 	waitingKeyRelease bool
 	waitingKey        byte
+
+	WrapSprites bool
 }
 
 func New() *CPU {
@@ -415,15 +417,29 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) error {
 
 	for row := 0; row < int(height); row++ {
 		spriteByte := c.Memory[(c.I + uint16(row))] //
-
+		y := (yPos + row)
+		if y >= screenHeight {
+			if c.WrapSprites {
+				y = y % screenHeight
+			} else {
+				break
+			}
+		}
 		for col := 0; col < 8; col++ {
 			spritePixel := spriteByte & (0x80 >> col)
 			if spritePixel == 0 {
 				continue
 			}
 
-			x := (xPos + col) % screenWidth
-			y := (yPos + row) % screenHeight
+			x := (xPos + col)
+			if x >= screenWidth {
+				if c.WrapSprites {
+					x = x % screenWidth
+				} else {
+					continue
+				}
+			}
+
 			index := y*screenWidth + x
 
 			if c.Display[index] {
