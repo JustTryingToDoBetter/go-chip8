@@ -599,6 +599,28 @@ func TestBNNNJumpToV0PlusNNN(t *testing.T) {
 	}
 }
 
+func TestBXNNJumpToVXPlusNNN_JumpUsesVX(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.JumpUsesVX = true
+
+	program := []byte{
+		0x60, 0x04, // V0 = 4 (deliberately different from V2)
+		0x62, 0x10, // V2 = 16
+		0xB2, 0x08, // PC = nnn(0x208) + V2 = 0x218 (register selected by opcode nibble, not V0)
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	// If the jump used V0 (4) instead of the opcode-selected V2 (16), PC would be 0x20C.
+	if cpu.PC != 0x218 {
+		t.Fatalf("expected PC to be 0x218 (nnn + V2), got 0x%03X", cpu.PC)
+	}
+}
+
 func TestCXNNRandomAndMask(t *testing.T) {
 	cpu := New()
 
