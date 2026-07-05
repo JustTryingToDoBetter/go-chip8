@@ -17,6 +17,14 @@ const (
 	screenHeight = ScreenHeight
 )
 
+type Quirks struct {
+	WrapSprites       bool // DXYN
+	ShiftModifiesVY   bool // 8XY6 and 8XYE
+	StoreLoadMutatesI bool // FX55 and FX65
+	JumpUsesVX        bool // BNNN vs BXNN
+	IndexOverFlowsVF  bool // FX1E
+}
+
 type CPU struct {
 	Memory [MemorySize]byte // 4K memory
 
@@ -39,7 +47,7 @@ type CPU struct {
 	waitingKeyRelease bool
 	waitingKey        byte
 
-	WrapSprites bool
+	Quirks Quirks
 }
 
 func New() *CPU {
@@ -419,7 +427,7 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) error {
 		spriteByte := c.Memory[(c.I + uint16(row))] //
 		y := (yPos + row)
 		if y >= screenHeight {
-			if c.WrapSprites {
+			if c.Quirks.WrapSprites {
 				y = y % screenHeight
 			} else {
 				break
@@ -433,7 +441,7 @@ func (c *CPU) drawSprite(xReg, yReg, height byte) error {
 
 			x := (xPos + col)
 			if x >= screenWidth {
-				if c.WrapSprites {
+				if c.Quirks.WrapSprites {
 					x = x % screenWidth
 				} else {
 					continue
@@ -496,4 +504,14 @@ func (c *CPU) ensureMemoryRange(start uint16, length int) error {
 	}
 
 	return nil
+}
+
+func NewVIPProfile() Quirks {
+	return Quirks{
+		WrapSprites:       false,
+		ShiftModifiesVY:   true,
+		StoreLoadMutatesI: true,
+		IndexOverFlowsVF:  false,
+		JumpUsesVX:        false,
+	}
 }
