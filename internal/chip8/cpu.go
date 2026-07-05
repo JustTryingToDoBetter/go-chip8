@@ -329,6 +329,10 @@ func (c *CPU) Execute(opcode uint16) error {
 				c.Memory[c.I+uint16(i)] = c.V[i]
 			}
 
+			if c.Quirks.StoreLoadMutatesI {
+				c.I += uint16(count)
+			}
+
 		case 0x65:
 			// laod V0 through VX from memory starting at I
 			// retrieves registers from memory?
@@ -340,7 +344,9 @@ func (c *CPU) Execute(opcode uint16) error {
 			for i := 0; i < count; i++ {
 				c.V[i] = c.Memory[c.I+uint16(i)]
 			}
-
+			if c.Quirks.StoreLoadMutatesI {
+				c.I += uint16(count)
+			}
 		default:
 			return fmt.Errorf("unknown 0xF000 opcode: 0x%04X", opcode)
 		}

@@ -21,7 +21,7 @@ type Game struct {
 
 func NewGame(romPath string) (*Game, error) {
 	cpu := chip8.New()
-
+	cpu.Quirks = chip8.NewVIPProfile()
 	if err := cpu.LoadROM(romPath); err != nil {
 		return nil, err
 	}
