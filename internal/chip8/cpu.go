@@ -255,7 +255,11 @@ func (c *CPU) Execute(opcode uint16) error {
 
 	case 0xB000:
 		// BNNN - jump to V0 + NNN
-		c.PC = uint16(c.V[0]) + nnn
+		if c.Quirks.JumpUsesVX {
+			c.PC = nnn + uint16(c.V[x])
+		} else {
+			c.PC = uint16(c.V[0]) + nnn
+		}
 
 	case 0xC000:
 		// CXNN - VX = random byte AND NN
