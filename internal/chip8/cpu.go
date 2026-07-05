@@ -202,10 +202,13 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.V[0xF] = flag
 
 		case 0x6:
-			source := c.V[y]
+			source := c.V[x]
+			if c.Quirks.ShiftModifiesVY {
+				source = c.V[y]
+			}
+
 			result := source >> 1
 			flag := source & 0x01
-
 			c.V[x] = result
 			c.V[0xF] = flag
 
@@ -224,9 +227,12 @@ func (c *CPU) Execute(opcode uint16) error {
 			c.V[0xF] = flag
 
 		case 0xE:
-			source := c.V[y]
-			result := source << 1
-			flag := (source & 0x80) >> 7
+			source := c.V[x]
+			if c.Quirks.ShiftModifiesVY {
+				source = c.V[y]
+			}
+			result := source << 1        // shift all bits to the left
+			flag := (source & 0x80) >> 7 // catch the bit that fell away
 
 			c.V[x] = result
 			c.V[0xF] = flag
