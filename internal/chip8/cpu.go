@@ -304,6 +304,13 @@ func (c *CPU) Execute(opcode uint16) error {
 		case 0x1E:
 			// I = I + VX
 			c.I += uint16(c.V[x])
+			if c.Quirks.IndexOverFlowsVF {
+				if c.I > 0xFFF {
+					c.V[0xF] = 1
+				} else {
+					c.V[0xF] = 0
+				}
+			}
 		case 0x15:
 			// FX15 - delay timer = VX set
 			c.DelayTimer = c.V[x]

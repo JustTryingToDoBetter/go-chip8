@@ -1020,6 +1020,67 @@ func TestFX1EAddVXToI(t *testing.T) {
 	}
 }
 
+func TestFX1ESetsVFOnOverflow_IndexOverFlowsVF(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.IndexOverFlowsVF = true
+
+	cpu.I = 0x0FFF
+	cpu.V[0] = 5
+
+	if err := cpu.Execute(0xF01E); err != nil {
+		t.Fatal(err)
+	}
+
+	if cpu.I != 0x1004 {
+		t.Fatalf("expected I to be 0x1004, got 0x%03X", cpu.I)
+	}
+
+	if cpu.V[0xF] != 1 {
+		t.Fatalf("expected VF to be 1 on overflow, got %d", cpu.V[0xF])
+	}
+}
+
+func TestFX1EClearsVFWhenNoOverflow_IndexOverFlowsVF(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.IndexOverFlowsVF = true
+
+	cpu.I = 0x0100
+	cpu.V[0] = 5
+
+	if err := cpu.Execute(0xF01E); err != nil {
+		t.Fatal(err)
+	}
+
+	if cpu.I != 0x0105 {
+		t.Fatalf("expected I to be 0x105, got 0x%03X", cpu.I)
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be 0 when no overflow happens, got %d", cpu.V[0xF])
+	}
+}
+
+func TestFX1ELeavesVFUntouchedWhenQuirkDisabled(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.IndexOverFlowsVF = false
+
+	cpu.V[0xF] = 7 // neither 0 nor 1, so it can't be confused with an on-branch outcome
+	cpu.I = 0x0FFF
+	cpu.V[0] = 5
+
+	if err := cpu.Execute(0xF01E); err != nil {
+		t.Fatal(err)
+	}
+
+	if cpu.I != 0x1004 {
+		t.Fatalf("expected I to be 0x1004, got 0x%03X", cpu.I)
+	}
+
+	if cpu.V[0xF] != 7 {
+		t.Fatalf("expected VF to remain untouched at 7, got %d", cpu.V[0xF])
+	}
+}
+
 func TestFX29SetIToFontSprite(t *testing.T) {
 	cpu := New()
 
