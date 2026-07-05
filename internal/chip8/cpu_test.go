@@ -441,6 +441,32 @@ func Test8XY6ShiftRight(t *testing.T) {
 	}
 }
 
+func Test8XY6ShiftRight_ModernProfile(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.ShiftModifiesVY = false
+
+	program := []byte{
+		0x60, 0b00000110, // V0 = 6 (VX)
+		0x61, 0b00000101, // V1 = 5 (VY) - deliberately different from V0
+		0x80, 0x16, // V0 = V0 >> 1, VF = dropped LSB
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	// If the source were VY (5) instead of VX (6), V0 would be 2 and VF would be 1.
+	if cpu.V[0] != 0b00000011 {
+		t.Fatalf("expected V0 to be 3 (shifted from VX), got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be 0 (dropped bit from VX), got %d", cpu.V[0xF])
+	}
+}
+
 func Test8XY7ReverseSubtract(t *testing.T) {
 	cpu := New()
 
@@ -485,6 +511,32 @@ func Test8XYEShiftLeft(t *testing.T) {
 
 	if cpu.V[0xF] != 1 {
 		t.Fatalf("expected VF to be 1, got %d", cpu.V[0xF])
+	}
+}
+
+func Test8XYEShiftLeft_ModernProfile(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.ShiftModifiesVY = false
+
+	program := []byte{
+		0x60, 0b01000010, // V0 = 66 (VX)
+		0x61, 0b10000001, // V1 = 129 (VY) - deliberately different from V0
+		0x80, 0x1E, // V0 = V0 << 1, VF = dropped MSB
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	stepN(t, cpu, 3)
+
+	// If the source were VY (129) instead of VX (66), V0 would be 2 and VF would be 1.
+	if cpu.V[0] != 0b10000100 {
+		t.Fatalf("expected V0 to be 132 (shifted from VX), got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 0 {
+		t.Fatalf("expected VF to be 0 (dropped bit from VX), got %d", cpu.V[0xF])
 	}
 }
 
