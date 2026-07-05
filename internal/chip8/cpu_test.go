@@ -724,6 +724,7 @@ func TestDXYNDrawSpriteCollision(t *testing.T) {
 
 func TestDXYNDrawSpriteWrapsAroundScreen(t *testing.T) {
 	cpu := New()
+	cpu.Quirks.WrapSprites = true
 
 	program := []byte{
 		0xA3, 0x00, // I = 0x300

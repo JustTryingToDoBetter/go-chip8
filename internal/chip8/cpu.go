@@ -52,7 +52,8 @@ type CPU struct {
 
 func New() *CPU {
 	cpu := &CPU{
-		PC: ProgramStart,
+		PC:     ProgramStart,
+		Quirks: NewVIPProfile(),
 	}
 
 	copy(cpu.Memory[FontStart:], fontSet[:])
