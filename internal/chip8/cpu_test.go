@@ -322,6 +322,87 @@ func Test8XY3Xor(t *testing.T) {
 	}
 }
 
+func Test8XY1Or_ModernProfile(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.LogicResetsVF = false
+
+	program := []byte{
+		0x60, 0b1010, // V0 = 10
+		0x61, 0b1100, // V1 = 12
+		0x80, 0x11, // V0 = V0 OR V1
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.V[0xF] = 1
+
+	stepN(t, cpu, 3)
+
+	if cpu.V[0] != 0b1110 {
+		t.Fatalf("expected V0 to be 14, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 1 {
+		t.Fatalf("expected VF to be left unchanged at 1, got %d", cpu.V[0xF])
+	}
+}
+
+func Test8XY2And_ModernProfile(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.LogicResetsVF = false
+
+	program := []byte{
+		0x60, 0b1010, // V0 = 10
+		0x61, 0b1100, // V1 = 12
+		0x80, 0x12, // V0 = V0 AND V1
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.V[0xF] = 1
+
+	stepN(t, cpu, 3)
+
+	if cpu.V[0] != 0b1000 {
+		t.Fatalf("expected V0 to be 8, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 1 {
+		t.Fatalf("expected VF to be left unchanged at 1, got %d", cpu.V[0xF])
+	}
+}
+
+func Test8XY3Xor_ModernProfile(t *testing.T) {
+	cpu := New()
+	cpu.Quirks.LogicResetsVF = false
+
+	program := []byte{
+		0x60, 0b1010, // V0 = 10
+		0x61, 0b1100, // V1 = 12
+		0x80, 0x13, // V0 = V0 XOR V1
+	}
+
+	if err := cpu.LoadProgram(program); err != nil {
+		t.Fatal(err)
+	}
+
+	cpu.V[0xF] = 1
+
+	stepN(t, cpu, 3)
+
+	if cpu.V[0] != 0b0110 {
+		t.Fatalf("expected V0 to be 6, got %d", cpu.V[0])
+	}
+
+	if cpu.V[0xF] != 1 {
+		t.Fatalf("expected VF to be left unchanged at 1, got %d", cpu.V[0xF])
+	}
+}
+
 func Test8XY4AddNoCarry(t *testing.T) {
 	cpu := New()
 
