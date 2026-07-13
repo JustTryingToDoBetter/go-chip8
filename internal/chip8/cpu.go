@@ -23,6 +23,7 @@ type Quirks struct {
 	StoreLoadMutatesI bool // FX55 and FX65
 	JumpUsesVX        bool // BNNN vs BXNN
 	IndexOverFlowsVF  bool // FX1E
+	LogicResetsVF     bool // 8XY1, 8XY2, 8XY3
 }
 
 type CPU struct {
@@ -160,17 +161,23 @@ func (c *CPU) Execute(opcode uint16) error {
 		case 0x1:
 			result := c.V[x] | c.V[y]
 			c.V[x] = result
-			c.V[0xF] = 0
+			if c.Quirks.LogicResetsVF {
+				c.V[0xF] = 0
+			}
 
 		case 0x2:
 			result := c.V[x] & c.V[y]
 			c.V[x] = result
-			c.V[0xF] = 0
+			if c.Quirks.LogicResetsVF {
+				c.V[0xF] = 0
+			}
 
 		case 0x3:
 			result := c.V[x] ^ c.V[y]
 			c.V[x] = result
-			c.V[0xF] = 0
+			if c.Quirks.LogicResetsVF {
+				c.V[0xF] = 0
+			}
 
 		case 0x4:
 			vx := c.V[x]
@@ -537,5 +544,6 @@ func NewVIPProfile() Quirks {
 		StoreLoadMutatesI: true,
 		IndexOverFlowsVF:  false,
 		JumpUsesVX:        false,
+		LogicResetsVF:     true,
 	}
 }
