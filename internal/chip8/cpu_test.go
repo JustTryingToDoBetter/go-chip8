@@ -403,6 +403,23 @@ func Test8XY3Xor_ModernProfile(t *testing.T) {
 	}
 }
 
+func TestNewSuperChipProfile(t *testing.T) {
+	profile := NewSuperChipProfile()
+
+	expected := Quirks{
+		WrapSprites:       false,
+		ShiftModifiesVY:   false,
+		StoreLoadMutatesI: false,
+		JumpUsesVX:        true,
+		IndexOverFlowsVF:  false,
+		LogicResetsVF:     false,
+	}
+
+	if profile != expected {
+		t.Fatalf("NewSuperChipProfile( = %+v, want %+v)", profile, expected)
+	}
+}
+
 func Test8XY4AddNoCarry(t *testing.T) {
 	cpu := New()
 

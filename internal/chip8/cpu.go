@@ -547,3 +547,14 @@ func NewVIPProfile() Quirks {
 		LogicResetsVF:     true,
 	}
 }
+
+func NewSuperChipProfile() Quirks {
+	return Quirks{
+		WrapSprites:       false,
+		ShiftModifiesVY:   false,
+		StoreLoadMutatesI: false,
+		JumpUsesVX:        true,
+		IndexOverFlowsVF:  false,
+		LogicResetsVF:     false,
+	}
+}
